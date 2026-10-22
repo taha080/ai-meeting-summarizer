@@ -6,8 +6,8 @@ and then combined so action items and decisions are deduplicated.
 
 The default provider is Groq's free tier. Chunks stay small enough for the
 8,000 tokens-per-minute budget, and a 429 is retried with backoff. If
-``openai/gpt-oss-120b`` fails, the call is tried again with
-``llama-3.3-70b-versatile``.
+``openai/gpt-oss-20b`` fails, the call is tried again with
+``openai/gpt-oss-120b``.
 """
 
 from __future__ import annotations
@@ -374,6 +374,15 @@ def _create_chat(client: OpenAI, *, model: str, system: str, user: str) -> Any:
             "temperature": 0.2,
             "messages": messages,
         }
+        if model.startswith("openai/gpt-oss"):
+            # These models spend completion tokens on reasoning. Low effort and a
+            # hidden reasoning channel keep JSON mode inside the free-tier budget.
+            kwargs["temperature"] = 0.6
+            kwargs["extra_body"] = {
+                "reasoning_effort": "low",
+                "reasoning_format": "hidden",
+                "max_completion_tokens": 2048,
+            }
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
         return client.chat.completions.create(**kwargs)

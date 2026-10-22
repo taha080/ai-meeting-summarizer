@@ -84,6 +84,7 @@ def test_short_transcript_makes_one_chat_call() -> None:
     assert call["model"] == "gpt-4o-mini"
     assert call["temperature"] == 0.2
     assert call["response_format"] == {"type": "json_object"}
+    assert "extra_body" not in call
     assert "Transcript excerpt 1 of 1" in call["messages"][1]["content"]
     assert "Partial analyses" not in call["messages"][1]["content"]
 
@@ -158,11 +159,13 @@ def test_groq_falls_back_after_rate_limits(monkeypatch: pytest.MonkeyPatch) -> N
     class Scripted:
         def __init__(self) -> None:
             self.calls: list[str] = []
+            self.kwargs: list[dict[str, object]] = []
 
         def create(self, **kwargs: object) -> SimpleNamespace:
             model_name = str(kwargs["model"])
             self.calls.append(model_name)
-            if model_name == "openai/gpt-oss-120b":
+            self.kwargs.append(kwargs)
+            if model_name == "openai/gpt-oss-20b":
                 error = Exception("429 rate limit")
                 error.status_code = 429  # type: ignore[attr-defined]
                 raise error
@@ -174,9 +177,14 @@ def test_groq_falls_back_after_rate_limits(monkeypatch: pytest.MonkeyPatch) -> N
     summary = summarize_transcript("We decided to ship on Monday.", client=client)
 
     assert summary.summary == "Combined from the fallback."
-    assert scripted.calls[0] == "openai/gpt-oss-120b"
-    assert scripted.calls[-1] == "llama-3.3-70b-versatile"
-    assert scripted.calls.count("openai/gpt-oss-120b") == 5
+    assert scripted.calls[0] == "openai/gpt-oss-20b"
+    assert scripted.calls[-1] == "openai/gpt-oss-120b"
+    assert scripted.calls.count("openai/gpt-oss-20b") == 5
+    assert scripted.kwargs[-1]["extra_body"] == {
+        "reasoning_effort": "low",
+        "reasoning_format": "hidden",
+        "max_completion_tokens": 2048,
+    }
 
 
 def test_empty_transcript_is_rejected() -> None:
