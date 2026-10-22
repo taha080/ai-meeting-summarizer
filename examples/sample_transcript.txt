@@ -1,0 +1,24 @@
+Product sync — Monday, October 19
+Attendees: Priya Shah (PM), Luis Ortega (Engineering), Maya Chen (Design), Jonah Brooks (Customer Success)
+
+Priya: Thanks everyone. The goal today is to lock the launch plan for the mobile checklist feature and the support handoff.
+
+Maya: Usability tests wrapped Friday. Two issues are blocking: the empty-state copy is confusing, and the offline banner disappears too quickly. I can deliver revised copy and banner specs by Wednesday, October 21.
+
+Luis: The offline bug is in the sync worker. I'll patch it and open the release branch by Thursday, October 22. We should not start the staged rollout until that fix is in build 1.4.2.
+
+Priya: Decision: the staged rollout starts Monday, October 26, and only after build 1.4.2 includes Luis's sync fix and Maya's copy update. We're aiming the full rollout for Friday, October 30, assuming the staged metrics stay healthy.
+
+Jonah: Enterprise accounts asked for a one-page support note. I'll draft the help-center article and send it to Maya for review by Thursday, October 22. Support should not promise Android tablet support. That stays out of this release.
+
+Priya: Agreed. Decision: Android tablet support is deferred to next quarter. Luis, please note that in the release notes. Jonah owns the customer email, due Wednesday, October 21, announcing the Monday staged rollout and the tablet deferral.
+
+Luis: I'll also add a migration check for users still on version 1.3. That's part of my Thursday patch, not a separate project.
+
+Maya: I'll post the final screens in the launch channel once copy is approved.
+
+Priya: Decision: we go to full rollout on October 30 only if crash-free sessions stay above 99.5 percent during the staged rollout and support volume doesn't spike. I'll publish the go/no-go checklist tomorrow, October 20.
+
+Jonah: If support volume doubles, I'll flag it in the launch channel the same day.
+
+Priya: Thanks. The recap after this meeting will live in the project doc. That's all.
