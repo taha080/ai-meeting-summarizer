@@ -88,6 +88,14 @@ body {
 
 .skip:focus { top: 12px; }
 
+#settings,
+#composer,
+#results,
+#notes,
+#api-key {
+  scroll-margin-top: 84px;
+}
+
 .wrap {
   width: min(1120px, calc(100% - 40px));
   margin: 0 auto;
@@ -330,7 +338,14 @@ button:hover { border-color: var(--forest); }
   align-items: start;
 }
 
-.field-head { justify-content: space-between; }
+.field-head {
+  justify-content: space-between;
+  min-height: 44px;
+  margin-bottom: 8px;
+}
+
+.field-head label,
+.field-head .label-text { margin-bottom: 0; }
 
 .dropzone {
   position: relative;
@@ -369,7 +384,9 @@ button:hover { border-color: var(--forest); }
 
 .drop-hint, .file-name { font-size: 0.92rem; }
 
-.file-name { font-weight: 600; color: var(--forest); }
+.file-name { font-weight: 500; }
+
+.dropzone.has-file .file-name { color: var(--forest); font-weight: 600; }
 
 #clear-audio { margin-top: 10px; }
 
