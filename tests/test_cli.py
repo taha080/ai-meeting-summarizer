@@ -19,6 +19,7 @@ def test_help_lists_format_and_out() -> None:
     assert result.exit_code == 0
     assert "--format" in result.output
     assert "--out" in result.output
+    assert "--provider" in result.output
     assert "markdown" in result.output
     assert "json" in result.output
 
@@ -51,8 +52,10 @@ def test_markdown_and_json_output(
             "json",
             "--model",
             "gpt-4o",
+            "--provider",
+            "groq",
             "--transcription-model",
-            "gpt-4o-transcribe",
+            "whisper-large-v3-turbo",
             "--chunk-size",
             "800",
         ],
@@ -64,7 +67,8 @@ def test_markdown_and_json_output(
     kwargs = seen["kwargs"]
     assert isinstance(kwargs, dict)
     assert kwargs["model"] == "gpt-4o"
-    assert kwargs["transcription_model"] == "gpt-4o-transcribe"
+    assert kwargs["provider"] == "groq"
+    assert kwargs["transcription_model"] == "whisper-large-v3-turbo"
     assert kwargs["chunk_size"] == 800
 
 
