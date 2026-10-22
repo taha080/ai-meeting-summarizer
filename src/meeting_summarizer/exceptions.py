@@ -6,7 +6,7 @@ class MeetingSummarizerError(Exception):
 
 
 class MissingAPIKeyError(MeetingSummarizerError):
-    """The OpenAI API key is not configured."""
+    """The selected provider's API key is not configured."""
 
 
 class ConfigurationError(MeetingSummarizerError):
@@ -22,8 +22,12 @@ class EmptyTranscriptError(MeetingSummarizerError):
 
 
 class AudioTooLargeError(MeetingSummarizerError):
-    """An audio file exceeds the transcription size limit."""
+    """An audio file exceeds the transcription size limit and could not be split."""
 
 
 class SummarizerError(MeetingSummarizerError):
     """The chat model response could not be turned into a summary."""
+
+
+class ProviderRequestError(SummarizerError):
+    """The provider rejected the request or the call failed after retries."""

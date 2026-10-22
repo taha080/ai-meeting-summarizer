@@ -12,7 +12,7 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from meeting_summarizer.config import MAX_AUDIO_BYTES, load_env
+from meeting_summarizer.config import MAX_UPLOAD_BYTES, load_env
 from meeting_summarizer.exceptions import (
     AudioTooLargeError,
     EmptyTranscriptError,
@@ -57,7 +57,7 @@ def index() -> HTMLResponse:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    """Liveness check that does not call OpenAI."""
+    """Liveness check that does not call a provider."""
     return {"status": "ok"}
 
 
@@ -66,6 +66,7 @@ async def summarize_upload(
     file: UploadFile = File(..., description="MP3, WAV, M4A, or TXT meeting file."),
     model: str = Form(""),
     transcription_model: str = Form(""),
+    provider: str = Form(""),
 ) -> MeetingSummary:
     """Accept an upload, summarize it, and return the structured result."""
     load_env()
@@ -87,8 +88,12 @@ async def summarize_upload(
                 if not chunk:
                     break
                 size += len(chunk)
-                if size > MAX_AUDIO_BYTES:
-                    raise AudioTooLargeError("The upload is larger than the 25 MB limit.")
+                if size > MAX_UPLOAD_BYTES:
+                    if MAX_UPLOAD_BYTES >= 1024 * 1024:
+                        limit = f"{MAX_UPLOAD_BYTES // (1024 * 1024)} MB"
+                    else:
+                        limit = f"{MAX_UPLOAD_BYTES} bytes"
+                    raise AudioTooLargeError(f"The upload is larger than the {limit} limit.")
                 handle.write(chunk)
         if size == 0:
             raise EmptyTranscriptError(f"{filename} is empty.")
@@ -96,6 +101,7 @@ async def summarize_upload(
             stored,
             model=model.strip() or None,
             transcription_model=transcription_model.strip() or None,
+            provider=provider.strip() or None,
         )
     finally:
         shutil.rmtree(directory, ignore_errors=True)

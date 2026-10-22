@@ -146,6 +146,39 @@ def test_fenced_and_invalid_json(tmp_path: Path) -> None:
         summarize_transcript("A short meeting.", client=failing, model="gpt-4o-mini")
 
 
+def test_groq_falls_back_after_rate_limits(monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+
+    monkeypatch.setattr("meeting_summarizer.config.load_dotenv", lambda *args, **kwargs: False)
+    monkeypatch.setattr("meeting_summarizer.retry.time.sleep", lambda _seconds: None)
+    monkeypatch.setenv("PROVIDER", "groq")
+    monkeypatch.delenv("GROQ_MODEL", raising=False)
+    monkeypatch.delenv("GROQ_FALLBACK_MODEL", raising=False)
+
+    class Scripted:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        def create(self, **kwargs: object) -> SimpleNamespace:
+            model_name = str(kwargs["model"])
+            self.calls.append(model_name)
+            if model_name == "openai/gpt-oss-120b":
+                error = Exception("429 rate limit")
+                error.status_code = 429  # type: ignore[attr-defined]
+                raise error
+            content = _payload("Combined from the fallback.", "Send the notes")
+            return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
+
+    scripted = Scripted()
+    client = SimpleNamespace(chat=SimpleNamespace(completions=scripted))
+    summary = summarize_transcript("We decided to ship on Monday.", client=client)
+
+    assert summary.summary == "Combined from the fallback."
+    assert scripted.calls[0] == "openai/gpt-oss-120b"
+    assert scripted.calls[-1] == "llama-3.3-70b-versatile"
+    assert scripted.calls.count("openai/gpt-oss-120b") == 5
+
+
 def test_empty_transcript_is_rejected() -> None:
     with pytest.raises(EmptyTranscriptError):
         summarize_transcript("  \n", client=FakeOpenAI(), model="gpt-4o-mini")
@@ -170,10 +203,10 @@ def test_summarize_file_reads_text_and_transcribes_audio(tmp_path: Path) -> None
         audio,
         client=audio_client,
         model="gpt-4o-mini",
-        transcription_model="whisper-1",
+        transcription_model="whisper-large-v3-turbo",
     )
     assert summary.summary == "Talked through the launch."
-    assert audio_client.audio.transcriptions.calls[0]["model"] == "whisper-1"
+    assert audio_client.audio.transcriptions.calls[0]["model"] == "whisper-large-v3-turbo"
     assert "Thursday" in audio_client.chat.completions.calls[0]["messages"][1]["content"]
 
 

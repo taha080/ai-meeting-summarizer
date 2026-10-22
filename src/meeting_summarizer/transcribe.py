@@ -1,23 +1,33 @@
-"""Load a plain-text transcript or transcribe meeting audio with OpenAI."""
+"""Load a plain-text transcript or transcribe meeting audio.
+
+The default provider is Groq's free API (``whisper-large-v3-turbo``). Files
+larger than the provider's upload cap are split before they are sent.
+"""
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from typing import Any
 
 from openai import OpenAI, OpenAIError
 
+from meeting_summarizer.audio_split import prepare_audio_segments
 from meeting_summarizer.config import (
+    GEMINI_INLINE_BYTES,
     MAX_AUDIO_BYTES,
-    build_openai_client,
+    build_client,
+    resolve_provider,
     resolve_transcription_model,
 )
 from meeting_summarizer.exceptions import (
-    AudioTooLargeError,
     EmptyTranscriptError,
+    ProviderRequestError,
     SummarizerError,
     UnsupportedMediaError,
 )
+from meeting_summarizer.gemini import transcribe_with_gemini
+from meeting_summarizer.retry import call_with_backoff, is_rate_limit
 
 AUDIO_EXTENSIONS = frozenset({".mp3", ".wav", ".m4a"})
 TEXT_EXTENSIONS = frozenset({".txt"})
@@ -55,17 +65,23 @@ def transcribe_audio(
     *,
     client: OpenAI | None = None,
     model: str | None = None,
+    provider: str | None = None,
 ) -> str:
-    """Transcribe an audio file with ``whisper-1`` or ``gpt-4o-transcribe``.
+    """Transcribe an audio file with the selected provider.
+
+    Groq's free tier uses ``whisper-large-v3-turbo`` and accepts 25 MB per
+    request. Larger files are split first. Gemini transcribes inline audio
+    on its free tier. A 429 is retried with exponential backoff.
 
     Args:
         path: Existing ``.mp3``, ``.wav``, or ``.m4a`` file.
-        client: OpenAI client. Built from the environment when omitted.
-        model: Transcription model. Defaults to the configured model.
+        client: OpenAI-compatible client. Built from the environment when omitted.
+        model: Transcription model. Defaults to the provider's free model.
+        provider: ``groq``, ``openai``, or ``gemini``. Defaults to ``groq``.
 
     Raises:
         UnsupportedMediaError: The suffix is not a supported audio type.
-        AudioTooLargeError: The file is larger than 25 MB.
+        AudioTooLargeError: The file is over the cap and could not be split.
         EmptyTranscriptError: The file or the transcript is empty.
         SummarizerError: The transcription request failed.
     """
@@ -77,30 +93,62 @@ def transcribe_audio(
         )
     if not path.is_file():
         raise FileNotFoundError(f"Audio file not found: {path}")
-
-    size = path.stat().st_size
-    if size == 0:
+    if path.stat().st_size == 0:
         raise EmptyTranscriptError(f"{path.name} is empty.")
-    if size > MAX_AUDIO_BYTES:
-        raise AudioTooLargeError(
-            f"{path.name} is larger than the 25 MB transcription limit."
-        )
 
-    transcription_model = resolve_transcription_model(model)
-    openai_client = client or build_openai_client()
+    selected = resolve_provider(provider)
+    transcription_model = resolve_transcription_model(model, provider=selected)
+    limit = GEMINI_INLINE_BYTES if selected == "gemini" else MAX_AUDIO_BYTES
+    segments, temp_dir = prepare_audio_segments(path, max_bytes=limit)
     try:
-        with path.open("rb") as audio_file:
-            result = openai_client.audio.transcriptions.create(
-                model=transcription_model,
-                file=(path.name, audio_file, _CONTENT_TYPES[suffix]),
-            )
-    except OpenAIError as exc:
-        raise SummarizerError(f"Transcription failed: {exc}") from exc
+        parts: list[str] = []
+        for segment in segments:
+            if selected == "gemini":
+                text = transcribe_with_gemini(segment, model=transcription_model)
+            else:
+                text = _transcribe_segment(
+                    segment,
+                    client=client,
+                    provider=selected,
+                    model=transcription_model,
+                )
+            if text.strip():
+                parts.append(text.strip())
+    finally:
+        if temp_dir is not None:
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
-    text = _transcription_text(result)
-    if not text:
+    if not parts:
         raise EmptyTranscriptError(f"No speech was detected in {path.name}.")
-    return text
+    return "\n".join(parts)
+
+
+def _transcribe_segment(
+    path: Path,
+    *,
+    client: OpenAI | None,
+    provider: str,
+    model: str,
+) -> str:
+    openai_client = client or build_client(provider)
+    suffix = path.suffix.lower()
+
+    def attempt() -> Any:
+        with path.open("rb") as audio_file:
+            return openai_client.audio.transcriptions.create(
+                model=model,
+                file=(path.name, audio_file, _CONTENT_TYPES.get(suffix, "application/octet-stream")),
+            )
+
+    try:
+        result = call_with_backoff(attempt)
+    except OpenAIError as exc:
+        raise ProviderRequestError(f"Transcription failed: {exc}") from exc
+    except Exception as exc:
+        if is_rate_limit(exc):
+            raise ProviderRequestError(f"Transcription failed: {exc}") from exc
+        raise
+    return _transcription_text(result)
 
 
 def load_transcript(
@@ -108,11 +156,11 @@ def load_transcript(
     *,
     client: OpenAI | None = None,
     transcription_model: str | None = None,
+    provider: str | None = None,
 ) -> str:
     """Return transcript text from a ``.txt`` file or by transcribing audio.
 
-    Text files are read locally and never sent to the transcription API.
-    Audio files are uploaded to OpenAI for transcription.
+    Text files are read locally and are never sent to a transcription API.
     """
     path = Path(path)
     if not path.exists() or not path.is_file():
@@ -129,6 +177,7 @@ def load_transcript(
             path,
             client=client,
             model=transcription_model,
+            provider=provider,
         )
     raise UnsupportedMediaError(
         f"Unsupported file type '{suffix or path.name}'. Use .mp3, .wav, .m4a, or .txt."
