@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Meeting Summarizer</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f0e8;
+      --ink: #1c1915;
+      --muted: #5e584e;
+      --card: #fffdf8;
+      --line: #e3dacc;
+      --accent: #0f5c4c;
+      --accent-ink: #f4fbf8;
+      --danger-bg: #fdecea;
+      --danger-ink: #8c2f2f;
+      --shadow: 0 16px 40px rgba(40, 32, 20, 0.06);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(1200px 480px at 10% -10%, #efe6d4 0%, transparent 55%),
+        var(--bg);
+      color: var(--ink);
+      font-family: "Liberation Sans", "DejaVu Sans", "Segoe UI", Helvetica, Arial, sans-serif;
+      line-height: 1.5;
+    }
+
+    main {
+      width: min(880px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 48px 0 72px;
+    }
+
+    header h1 {
+      margin: 0 0 8px;
+      font-size: 2rem;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+    }
+
+    header p {
+      margin: 0;
+      max-width: 62ch;
+      color: var(--muted);
+    }
+
+    .card {
+      margin-top: 28px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 24px;
+    }
+
+    form { display: grid; gap: 16px; }
+
+    label { display: grid; gap: 6px; font-weight: 650; }
+
+    .hint { font-weight: 450; color: var(--muted); font-size: 0.92rem; }
+
+    input[type="file"],
+    input[type="text"],
+    select {
+      width: 100%;
+      font: inherit;
+      color: inherit;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+
+    input:focus, select:focus, button:focus-visible {
+      outline: 3px solid rgba(15, 92, 76, 0.28);
+      outline-offset: 1px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    button {
+      justify-self: start;
+      font: inherit;
+      font-weight: 700;
+      color: var(--accent-ink);
+      background: var(--accent);
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 20px;
+      cursor: pointer;
+    }
+
+    button:disabled { opacity: 0.6; cursor: progress; }
+
+    .status {
+      min-height: 1.4em;
+      color: var(--muted);
+    }
+
+    .error {
+      display: none;
+      background: var(--danger-bg);
+      color: var(--danger-ink);
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+
+    .error.visible { display: block; }
+
+    h2 { margin: 0 0 8px; font-size: 1.15rem; }
+
+    .summary { font-size: 1.05rem; margin: 0 0 20px; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.98rem;
+    }
+
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    th { color: var(--muted); font-size: 0.82rem; letter-spacing: 0.04em; text-transform: uppercase; }
+
+    ul { margin: 0; padding-left: 1.2rem; }
+    li + li { margin-top: 6px; }
+
+    .section + .section { margin-top: 22px; }
+
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: "Liberation Mono", "DejaVu Sans Mono", ui-monospace, monospace;
+      font-size: 0.86rem;
+      background: #f7f3ea;
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    details summary { cursor: pointer; color: var(--accent); font-weight: 650; }
+
+    footer {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    @media (max-width: 700px) {
+      .row { grid-template-columns: 1fr; }
+      main { padding-top: 28px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Meeting Summarizer</h1>
+      <p>Upload a meeting recording or a plain-text transcript. Audio is transcribed, then a chat model returns a short summary, action items, and the decisions that were made.</p>
+    </header>
+
+    <section class="card">
+      <form id="summarize-form">
+        <label>
+          Meeting file
+          <input id="file" name="file" type="file" accept=".mp3,.wav,.m4a,.txt,audio/mpeg,audio/wav,audio/mp4,text/plain" required>
+          <span class="hint">MP3, WAV, M4A, or TXT. Maximum 25 MB.</span>
+        </label>
+        <div class="row">
+          <label>
+            Chat model
+            <input id="model" name="model" type="text" value="gpt-4o-mini" autocomplete="off">
+          </label>
+          <label>
+            Transcription model
+            <select id="transcription-model" name="transcription_model">
+              <option value="whisper-1" selected>whisper-1</option>
+              <option value="gpt-4o-transcribe">gpt-4o-transcribe</option>
+            </select>
+          </label>
+        </div>
+        <button id="submit" type="submit">Summarize meeting</button>
+        <p id="status" class="status" role="status"></p>
+        <p id="error" class="error" role="alert"></p>
+      </form>
+    </section>
+
+    <section id="results" class="card" hidden>
+      <div class="section">
+        <h2>Summary</h2>
+        <p id="summary" class="summary"></p>
+      </div>
+      <div class="section">
+        <h2>Action items</h2>
+        <div id="actions"></div>
+      </div>
+      <div class="section">
+        <h2>Key decisions</h2>
+        <div id="decisions"></div>
+      </div>
+      <div class="section">
+        <details>
+          <summary>JSON</summary>
+          <pre id="raw-json"></pre>
+        </details>
+      </div>
+    </section>
+
+    <footer>
+      Audio and transcripts are sent to OpenAI with the server's OPENAI_API_KEY. Nothing is stored after the response is returned.
+    </footer>
+  </main>
+  <script>
+    const form = document.getElementById("summarize-form");
+    const fileInput = document.getElementById("file");
+    const modelInput = document.getElementById("model");
+    const transcriptionInput = document.getElementById("transcription-model");
+    const submitButton = document.getElementById("submit");
+    const status = document.getElementById("status");
+    const errorBox = document.getElementById("error");
+    const results = document.getElementById("results");
+    const summary = document.getElementById("summary");
+    const actions = document.getElementById("actions");
+    const decisions = document.getElementById("decisions");
+    const rawJson = document.getElementById("raw-json");
+
+    function setError(message) {
+      errorBox.textContent = message;
+      errorBox.classList.toggle("visible", Boolean(message));
+    }
+
+    function dash(value) {
+      return value ? value : "—";
+    }
+
+    function renderActions(items) {
+      actions.replaceChildren();
+      if (!items.length) {
+        const empty = document.createElement("p");
+        empty.textContent = "No action items identified.";
+        actions.appendChild(empty);
+        return;
+      }
+      const table = document.createElement("table");
+      const head = document.createElement("tr");
+      ["Task", "Owner", "Due"].forEach((label) => {
+        const cell = document.createElement("th");
+        cell.textContent = label;
+        head.appendChild(cell);
+      });
+      const thead = document.createElement("thead");
+      thead.appendChild(head);
+      const tbody = document.createElement("tbody");
+      items.forEach((item) => {
+        const row = document.createElement("tr");
+        [item.task, dash(item.owner), dash(item.due_date)].forEach((value) => {
+          const cell = document.createElement("td");
+          cell.textContent = value;
+          row.appendChild(cell);
+        });
+        tbody.appendChild(row);
+      });
+      table.append(thead, tbody);
+      actions.appendChild(table);
+    }
+
+    function renderDecisions(items) {
+      decisions.replaceChildren();
+      if (!items.length) {
+        const empty = document.createElement("p");
+        empty.textContent = "No key decisions identified.";
+        decisions.appendChild(empty);
+        return;
+      }
+      const list = document.createElement("ul");
+      items.forEach((item) => {
+        const entry = document.createElement("li");
+        entry.textContent = item;
+        list.appendChild(entry);
+      });
+      decisions.appendChild(list);
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      setError("");
+      results.hidden = true;
+      const chosen = fileInput.files && fileInput.files[0];
+      if (!chosen) {
+        setError("Choose a meeting file first.");
+        return;
+      }
+
+      const body = new FormData();
+      body.append("file", chosen);
+      body.append("model", modelInput.value.trim());
+      body.append("transcription_model", transcriptionInput.value);
+
+      submitButton.disabled = true;
+      status.textContent = "Summarizing…";
+      try {
+        const response = await fetch("/api/summarize", { method: "POST", body });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.detail || "Summarization failed.");
+        }
+        summary.textContent = payload.summary || "";
+        renderActions(payload.action_items || []);
+        renderDecisions(payload.key_decisions || []);
+        rawJson.textContent = JSON.stringify(payload, null, 2);
+        results.hidden = false;
+        status.textContent = "Summary ready.";
+        results.scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch (error) {
+        status.textContent = "";
+        setError(error.message || "Summarization failed.");
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
