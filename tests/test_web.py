@@ -18,8 +18,9 @@ def test_index_and_health() -> None:
     assert page.status_code == 200
     assert "Meeting Summarizer" in page.text
     assert 'id="file"' in page.text
-    assert "whisper-1" in page.text
-    assert "gpt-4o-transcribe" in page.text
+    assert "whisper-large-v3-turbo" in page.text
+    assert "openai/gpt-oss-120b" in page.text
+    assert "Groq (free)" in page.text
     assert client.get("/health").json() == {"status": "ok"}
 
 
@@ -33,13 +34,18 @@ def test_upload_text_returns_summary(
         seen["suffix"] = Path(path).suffix
         seen["model"] = kwargs["model"]
         seen["transcription_model"] = kwargs["transcription_model"]
+        seen["provider"] = kwargs["provider"]
         return sample_summary
 
     monkeypatch.setattr("meeting_summarizer.web.app.summarize_file", fake_summarize)
     response = client.post(
         "/api/summarize",
         files={"file": ("notes.txt", b"We agreed to ship.", "text/plain")},
-        data={"model": "gpt-4o", "transcription_model": "whisper-1"},
+        data={
+            "model": "openai/gpt-oss-120b",
+            "transcription_model": "whisper-large-v3-turbo",
+            "provider": "groq",
+        },
     )
 
     assert response.status_code == 200
@@ -51,13 +57,14 @@ def test_upload_text_returns_summary(
     assert seen == {
         "text": "We agreed to ship.",
         "suffix": ".txt",
-        "model": "gpt-4o",
-        "transcription_model": "whisper-1",
+        "model": "openai/gpt-oss-120b",
+        "transcription_model": "whisper-large-v3-turbo",
+        "provider": "groq",
     }
 
 
 def test_upload_rejects_bad_files(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("meeting_summarizer.web.app.MAX_AUDIO_BYTES", 8)
+    monkeypatch.setattr("meeting_summarizer.web.app.MAX_UPLOAD_BYTES", 8)
 
     unsupported = client.post(
         "/api/summarize",
@@ -78,15 +85,18 @@ def test_upload_rejects_bad_files(monkeypatch: pytest.MonkeyPatch) -> None:
         files={"file": ("meeting.mp3", b"0123456789", "audio/mpeg")},
     )
     assert huge.status_code == 413
-    assert "25 MB" in huge.json()["detail"]
+    assert "8 bytes" in huge.json()["detail"]
 
 
 def test_missing_api_key_is_reported(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("meeting_summarizer.config.load_dotenv", lambda *args, **kwargs: False)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("PROVIDER", raising=False)
     response = client.post(
         "/api/summarize",
         files={"file": ("notes.txt", b"Hello team.", "text/plain")},
     )
     assert response.status_code == 500
-    assert "OPENAI_API_KEY" in response.json()["detail"]
+    assert "GROQ_API_KEY" in response.json()["detail"]
+    assert "console.groq.com/keys" in response.json()["detail"]

@@ -85,7 +85,7 @@
 
     .row {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1.3fr 1.3fr;
       gap: 16px;
     }
 
@@ -171,7 +171,7 @@
   <main>
     <header>
       <h1>Meeting Summarizer</h1>
-      <p>Upload a meeting recording or a plain-text transcript. Audio is transcribed, then a chat model returns a short summary, action items, and the decisions that were made.</p>
+      <p>Upload a meeting recording or a plain-text transcript. Audio is transcribed on Groq's free tier, then a free chat model returns a short summary, action items, and the decisions that were made.</p>
     </header>
 
     <section class="card">
@@ -179,18 +179,29 @@
         <label>
           Meeting file
           <input id="file" name="file" type="file" accept=".mp3,.wav,.m4a,.txt,audio/mpeg,audio/wav,audio/mp4,text/plain" required>
-          <span class="hint">MP3, WAV, M4A, or TXT. Maximum 25 MB.</span>
+          <span class="hint">MP3, WAV, M4A, or TXT. Groq accepts 25 MB per request; larger audio is split. No card required.</span>
         </label>
         <div class="row">
           <label>
+            Provider
+            <select id="provider" name="provider">
+              <option value="groq" selected>Groq (free)</option>
+              <option value="gemini">Gemini (free tier)</option>
+              <option value="openai">OpenAI (optional, paid)</option>
+            </select>
+          </label>
+          <label>
             Chat model
-            <input id="model" name="model" type="text" value="gpt-4o-mini" autocomplete="off">
+            <input id="model" name="model" type="text" value="openai/gpt-oss-120b" autocomplete="off">
           </label>
           <label>
             Transcription model
             <select id="transcription-model" name="transcription_model">
-              <option value="whisper-1" selected>whisper-1</option>
-              <option value="gpt-4o-transcribe">gpt-4o-transcribe</option>
+              <option value="whisper-large-v3-turbo" selected>whisper-large-v3-turbo</option>
+              <option value="whisper-large-v3">whisper-large-v3</option>
+              <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+              <option value="whisper-1">whisper-1 (OpenAI)</option>
+              <option value="gpt-4o-transcribe">gpt-4o-transcribe (OpenAI)</option>
             </select>
           </label>
         </div>
@@ -222,14 +233,29 @@
     </section>
 
     <footer>
-      Audio and transcripts are sent to OpenAI with the server's OPENAI_API_KEY. Nothing is stored after the response is returned.
+      The default is Groq's free API using GROQ_API_KEY. Get a key at console.groq.com/keys — no credit card. Nothing is stored after the response is returned.
     </footer>
   </main>
   <script>
     const form = document.getElementById("summarize-form");
     const fileInput = document.getElementById("file");
+    const providerInput = document.getElementById("provider");
     const modelInput = document.getElementById("model");
     const transcriptionInput = document.getElementById("transcription-model");
+    const providerDefaults = {
+      groq: { model: "openai/gpt-oss-120b", transcription: "whisper-large-v3-turbo" },
+      gemini: { model: "gemini-2.5-flash", transcription: "gemini-2.5-flash" },
+      openai: { model: "gpt-4o-mini", transcription: "whisper-1" },
+    };
+
+    providerInput.addEventListener("change", () => {
+      const defaults = providerDefaults[providerInput.value];
+      if (!defaults) {
+        return;
+      }
+      modelInput.value = defaults.model;
+      transcriptionInput.value = defaults.transcription;
+    });
     const submitButton = document.getElementById("submit");
     const status = document.getElementById("status");
     const errorBox = document.getElementById("error");
@@ -308,6 +334,7 @@
 
       const body = new FormData();
       body.append("file", chosen);
+      body.append("provider", providerInput.value);
       body.append("model", modelInput.value.trim());
       body.append("transcription_model", transcriptionInput.value);
 

@@ -1,3 +1,5 @@
+# HTTP client for Groq's OpenAI-compatible free API. This does not call paid OpenAI
+# unless PROVIDER=openai.
 openai>=1.40.0
 typer>=0.12.0
 fastapi>=0.115.0

@@ -18,7 +18,8 @@ class FakeCompletions:
         if not self._contents:
             raise AssertionError("No fake completion responses left")
         message = SimpleNamespace(content=self._contents.pop(0))
-        return SimpleNamespace(choices=[SimpleNamespace(message=message)])
+        usage = SimpleNamespace(total_tokens=max(1, len(message.content) // 3))
+        return SimpleNamespace(choices=[SimpleNamespace(message=message)], usage=usage)
 
 
 class FakeTranscriptions:

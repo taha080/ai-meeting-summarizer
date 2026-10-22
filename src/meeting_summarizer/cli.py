@@ -14,7 +14,11 @@ from pathlib import Path
 
 import typer
 
-from meeting_summarizer.config import DEFAULT_CHAT_MODEL, DEFAULT_TRANSCRIPTION_MODEL
+from meeting_summarizer.config import (
+    DEFAULT_CHAT_MODEL,
+    DEFAULT_PROVIDER,
+    DEFAULT_TRANSCRIPTION_MODEL,
+)
 from meeting_summarizer.exceptions import MeetingSummarizerError
 from meeting_summarizer.models import render_summary
 from meeting_summarizer.summarize import DEFAULT_CHUNK_CHARS, summarize_file
@@ -55,16 +59,22 @@ def summarize(
         "-o",
         help="Write the result to this file as well as standard output.",
     ),
+    provider: str | None = typer.Option(
+        None,
+        "--provider",
+        help=f"groq (free, default), openai, or gemini. Default: PROVIDER or {DEFAULT_PROVIDER}.",
+        show_default=False,
+    ),
     model: str | None = typer.Option(
         None,
         "--model",
-        help=f"Chat model. Default: OPENAI_MODEL or {DEFAULT_CHAT_MODEL}.",
+        help=f"Chat model. Default for Groq: {DEFAULT_CHAT_MODEL}.",
         show_default=False,
     ),
     transcription_model: str | None = typer.Option(
         None,
         "--transcription-model",
-        help=f"Audio model: whisper-1 or gpt-4o-transcribe. Default: {DEFAULT_TRANSCRIPTION_MODEL}.",
+        help=f"Audio model. Default for Groq: {DEFAULT_TRANSCRIPTION_MODEL}.",
         show_default=False,
     ),
     chunk_size: int = typer.Option(
@@ -89,6 +99,7 @@ def summarize(
             source,
             model=model,
             transcription_model=transcription_model,
+            provider=provider,
             chunk_size=chunk_size,
         )
         rendered = render_summary(summary, output_format.value)

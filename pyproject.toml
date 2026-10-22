@@ -5,11 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "meeting-summarizer"
 version = "0.1.0"
-description = "Summarize meeting audio or transcripts into action items and decisions."
+description = "Free meeting summaries from audio or transcripts, using Groq by default."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-keywords = ["meetings", "summarization", "openai", "whisper"]
+keywords = ["meetings", "summarization", "groq", "whisper", "gemini"]
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
