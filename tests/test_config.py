@@ -89,13 +89,15 @@ def test_optional_providers(isolated_env: None, monkeypatch: pytest.MonkeyPatch)
 
 def test_free_tier_model_defaults(isolated_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     assert resolve_provider(None) == "groq"
-    assert resolve_chat_model(None) == GROQ_CHAT_MODEL
-    assert resolve_fallback_model() == GROQ_FALLBACK_MODEL
+    assert GROQ_CHAT_MODEL == "openai/gpt-oss-20b"
+    assert GROQ_FALLBACK_MODEL == "openai/gpt-oss-120b"
+    assert resolve_chat_model(None) == "openai/gpt-oss-20b"
+    assert resolve_fallback_model() == "openai/gpt-oss-120b"
     assert resolve_transcription_model(None) == GROQ_TRANSCRIPTION_MODEL
 
-    monkeypatch.setenv("GROQ_MODEL", "openai/gpt-oss-20b")
+    monkeypatch.setenv("GROQ_MODEL", "openai/gpt-oss-120b")
     monkeypatch.setenv("GROQ_FALLBACK_MODEL", "")
-    assert resolve_chat_model(None) == "openai/gpt-oss-20b"
+    assert resolve_chat_model(None) == "openai/gpt-oss-120b"
     assert resolve_chat_model("  custom-model  ") == "custom-model"
     assert resolve_fallback_model() is None
     assert resolve_transcription_model("whisper-large-v3") == "whisper-large-v3"

@@ -19,9 +19,10 @@ PROVIDERS = ("groq", "openai", "gemini")
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 GEMINI_OPENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
-# Groq free-tier defaults. gpt-oss-120b is capped at 8,000 tokens per minute.
-GROQ_CHAT_MODEL = "openai/gpt-oss-120b"
-GROQ_FALLBACK_MODEL = "llama-3.3-70b-versatile"
+# Groq free-tier defaults. gpt-oss-20b and gpt-oss-120b are each capped at
+# 8,000 tokens per minute. Llama models are no longer on the free plan.
+GROQ_CHAT_MODEL = "openai/gpt-oss-20b"
+GROQ_FALLBACK_MODEL = "openai/gpt-oss-120b"
 GROQ_TRANSCRIPTION_MODEL = "whisper-large-v3-turbo"
 
 OPENAI_CHAT_MODEL = "gpt-4o-mini"
@@ -38,7 +39,8 @@ TRANSCRIPTION_MODELS = {
     "openai": frozenset({"whisper-1", "gpt-4o-transcribe"}),
 }
 
-# Groq free tier for openai/gpt-oss-120b. One request must fit in this budget.
+# Groq free tier for openai/gpt-oss-20b and openai/gpt-oss-120b.
+# One request must fit in this budget.
 FREE_TIER_TPM = 8000
 # Over-estimate tokens (about 3 characters each) so a chunk cannot silently exceed 8k.
 CHARS_PER_TOKEN = 3
@@ -149,9 +151,8 @@ def resolve_chat_model(explicit: str | None = None, *, provider: str | None = No
 def resolve_fallback_model(provider: str | None = None) -> str | None:
     """Return Groq's fallback chat model, or ``None`` for other providers.
 
-    The default fallback is ``llama-3.3-70b-versatile``. Set
-    ``GROQ_FALLBACK_MODEL`` empty to disable it, or to another free model such
-    as ``openai/gpt-oss-20b`` if Groq has removed Llama 3.3 from the free plan.
+    The default fallback is ``openai/gpt-oss-120b``. Llama models are no longer
+    on Groq's free plan. Set ``GROQ_FALLBACK_MODEL`` empty to disable fallback.
     """
     selected = resolve_provider(provider)
     if selected != "groq":

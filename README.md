@@ -1,19 +1,24 @@
 # Meeting Summarizer
 
-Free meeting summaries. A recording or a plain-text transcript becomes a short summary, action items, and the decisions that were made. The default provider is [Groq's free API](https://console.groq.com/keys). No credit card.
+**Live site:** [https://taha080.github.io/ai-meeting-summarizer/](https://taha080.github.io/ai-meeting-summarizer/)
 
-Audio (MP3, WAV, or M4A) is transcribed with Groq `whisper-large-v3-turbo`. The transcript goes to `openai/gpt-oss-120b`. If that model keeps failing, the same request is tried with `llama-3.3-70b-versatile`. Both calls use Groq's OpenAI-compatible endpoint (`https://api.groq.com/openai/v1`) through the `openai` Python package, which is only an HTTP client here.
+Free meeting summaries. Paste notes or a transcript, or upload a recording, and get key points, decisions, and action items with owners. The public site is static GitHub Pages: no paid host, and no API key in the repository.
 
-Groq's free tier for `openai/gpt-oss-120b` is 8,000 tokens per minute. Transcripts are split into chunks of about 6,000 characters so one request fits in that budget, and later chunks wait for the next minute. A 429 response is retried with exponential backoff, honoring `Retry-After`. Groq accepts 25 MB of audio per request; larger files are split (WAV with the standard library, MP3 and M4A with ffmpeg).
+You bring a free [Groq](https://console.groq.com/keys) key. The page stores that key only in `localStorage` on your device, sends it only to `https://api.groq.com`, and never writes it to a log. Audio is transcribed with Groq `whisper-large-v3-turbo`. The transcript goes to `openai/gpt-oss-20b`. If that model keeps failing, the same request is tried with `openai/gpt-oss-120b`. Groq’s older Llama models are no longer on the free plan.
 
-OpenAI is optional and paid (`PROVIDER=openai`). Gemini's free tier is optional too (`PROVIDER=gemini`, model `gemini-2.5-flash`).
+The command-line tool and the local FastAPI app use the same models. They still read `GROQ_API_KEY` from `.env` (gitignored) and call Groq’s OpenAI-compatible endpoint (`https://api.groq.com/openai/v1`) through the `openai` Python package, which is only an HTTP client here.
+
+Groq's free tier for `openai/gpt-oss-20b` and `openai/gpt-oss-120b` is 8,000 tokens per minute on each model. Transcripts are split into chunks of about 6,000 characters so one request fits in that budget, and later chunks wait for the next minute. A 429 response is retried with exponential backoff, honoring `Retry-After`. Groq accepts 25 MB of audio per request; larger files are split by the local app (WAV with the standard library, MP3 and M4A with ffmpeg). The static site asks you to trim recordings over 25 MB.
+
+OpenAI is optional and paid (`PROVIDER=openai`). Gemini's free tier is optional too (`PROVIDER=gemini`, model `gemini-2.5-flash`). Neither is used by the public page.
 
 ## Features
 
+- Live at [taha080.github.io/ai-meeting-summarizer](https://taha080.github.io/ai-meeting-summarizer/). The visitor’s key stays in `localStorage` and is sent only to `api.groq.com`
 - Free by default. Groq key from [console.groq.com/keys](https://console.groq.com/keys), no card
 - Accepts `.mp3`, `.wav`, `.m4a`, and `.txt`
-- Transcription with `whisper-large-v3-turbo` (or `whisper-large-v3`)
-- Summaries from `openai/gpt-oss-120b`, falling back to `llama-3.3-70b-versatile`
+- Transcription with `whisper-large-v3-turbo` (or `whisper-large-v3` in the local app)
+- Summaries from `openai/gpt-oss-20b`, falling back to `openai/gpt-oss-120b`
 - JSON result: a short summary, action items (`task`, `owner`, `due_date`), and key decisions
 - Owners and due dates are included only when the meeting states them
 - Chunks sized for the 8k token-per-minute free budget, with 429 backoff
@@ -46,8 +51,8 @@ cp .env.example .env
 ```dotenv
 PROVIDER=groq
 GROQ_API_KEY=gsk_...
-GROQ_MODEL=openai/gpt-oss-120b
-GROQ_FALLBACK_MODEL=llama-3.3-70b-versatile
+GROQ_MODEL=openai/gpt-oss-20b
+GROQ_FALLBACK_MODEL=openai/gpt-oss-120b
 GROQ_TRANSCRIPTION_MODEL=whisper-large-v3-turbo
 ```
 
@@ -57,13 +62,13 @@ GROQ_TRANSCRIPTION_MODEL=whisper-large-v3-turbo
 | --- | --- | --- |
 | `GROQ_API_KEY` | Yes, for the default | Free Groq key |
 | `PROVIDER` | No | `groq` (default), `openai`, or `gemini` |
-| `GROQ_MODEL` | No | Chat model. Default `openai/gpt-oss-120b` |
-| `GROQ_FALLBACK_MODEL` | No | Used when the primary model keeps failing. Default `llama-3.3-70b-versatile`. Set `openai/gpt-oss-20b` if that Llama model is no longer on the free plan, or leave it empty to disable fallback |
+| `GROQ_MODEL` | No | Chat model. Default `openai/gpt-oss-20b` |
+| `GROQ_FALLBACK_MODEL` | No | Used when the primary model keeps failing. Default `openai/gpt-oss-120b`. Llama models are no longer on the free plan. Leave it empty to disable fallback |
 | `GROQ_TRANSCRIPTION_MODEL` | No | `whisper-large-v3-turbo` or `whisper-large-v3` |
 | `OPENAI_API_KEY` | Only if `PROVIDER=openai` | Paid OpenAI API. Not used by default |
 | `GEMINI_API_KEY` | Only if `PROVIDER=gemini` | Free key from [Google AI Studio](https://aistudio.google.com/apikey). Chat model `gemini-2.5-flash` |
 
-CLI flags and the web form override these defaults. Audio and transcripts are sent to the selected provider and are not stored after the response. Requests stay inside Groq's free limits: 8,000 tokens per minute for `openai/gpt-oss-120b`, and 25 MB per transcription upload.
+CLI flags and the local web form override these defaults. Audio and transcripts are sent to the selected provider and are not stored after the response. Requests stay inside Groq's free limits: 8,000 tokens per minute for `openai/gpt-oss-20b` and for `openai/gpt-oss-120b`, and 25 MB per transcription upload.
 
 `ffmpeg` is needed only to split MP3 or M4A files that are larger than 25 MB. WAV files split without it. Gemini inline audio is kept under 15 MB per request.
 
@@ -91,7 +96,24 @@ summarize FILE [--format markdown|json] [--out PATH]
 
 You can also run `python -m meeting_summarizer examples/sample_transcript.txt --format json`.
 
-## Web UI
+## Live site
+
+[https://taha080.github.io/ai-meeting-summarizer/](https://taha080.github.io/ai-meeting-summarizer/)
+
+The page is the `docs/` directory. [`.github/workflows/pages.yml`](.github/workflows/pages.yml) deploys it from `main` with GitHub Actions. The workflow has no secrets. GitHub Pages is free. In the repository settings, set Pages to **GitHub Actions** if this is the first deploy.
+
+In the browser:
+
+1. Choose **get a free key** and create one at [console.groq.com](https://console.groq.com/keys). No credit card.
+2. Paste the key into Settings. It is saved only in `localStorage` for this browser.
+3. Paste meeting notes, or upload an MP3, WAV, or M4A up to 25 MB.
+4. Read the briefing: key points, decisions, and action items with owners.
+
+A recording is transcribed in the browser by a direct call to Groq. Notes and audio are not stored on GitHub Pages. The page’s scripts call `https://api.groq.com` and no other API. Because a GitHub Pages project site shares an origin with that account’s other Pages, other pages on `taha080.github.io` can read `localStorage`.
+
+The browser returns JSON with `summary`, `key_points`, `key_decisions`, and `action_items` (`task`, `owner`, `due_date`). The local CLI and FastAPI app keep their existing shape: `summary`, `action_items`, and `key_decisions`.
+
+## Local web UI
 
 ```bash
 meeting-web
@@ -103,7 +125,7 @@ Or, with auto-reload during development:
 uvicorn meeting_summarizer.web.app:app --reload
 ```
 
-Open http://127.0.0.1:8000, choose an MP3, WAV, M4A, or TXT file, and submit. The page shows the summary, an action-item table, the key decisions, and the raw JSON. The form defaults to Groq, `openai/gpt-oss-120b`, and `whisper-large-v3-turbo`.
+Open http://127.0.0.1:8000, choose an MP3, WAV, M4A, or TXT file, and submit. The page shows the summary, an action-item table, the key decisions, and the raw JSON. The form defaults to Groq, `openai/gpt-oss-20b` (fallback `openai/gpt-oss-120b`), and `whisper-large-v3-turbo`. This local server reads `GROQ_API_KEY` from `.env`. The public site does not.
 
 `GET /health` returns `{"status": "ok"}`. `POST /api/summarize` accepts a multipart form with `file`, and optional `provider`, `model`, and `transcription_model` fields. The response body matches the CLI JSON.
 
@@ -176,7 +198,13 @@ The team locked a staged rollout of the mobile checklist for Monday, October 26,
 
 ```text
 .
+├── .github/workflows/pages.yml  # Deploys docs/ to GitHub Pages
 ├── .env.example
+├── docs/                        # Static site (GitHub Pages)
+│   ├── index.html
+│   ├── app.js
+│   ├── summarize.js
+│   └── styles.css
 ├── examples/
 │   └── sample_transcript.txt
 ├── src/meeting_summarizer/

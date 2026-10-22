@@ -171,7 +171,7 @@
   <main>
     <header>
       <h1>Meeting Summarizer</h1>
-      <p>Upload a meeting recording or a plain-text transcript. Audio is transcribed on Groq's free tier, then a free chat model returns a short summary, action items, and the decisions that were made.</p>
+      <p>Upload a meeting recording or a plain-text transcript. Audio is transcribed on Groq's free tier with whisper-large-v3-turbo, then openai/gpt-oss-20b returns a short summary, action items, and the decisions that were made. If that model keeps failing, the request is tried with openai/gpt-oss-120b.</p>
     </header>
 
     <section class="card">
@@ -192,7 +192,8 @@
           </label>
           <label>
             Chat model
-            <input id="model" name="model" type="text" value="openai/gpt-oss-120b" autocomplete="off">
+            <input id="model" name="model" type="text" value="openai/gpt-oss-20b" autocomplete="off">
+            <span class="hint">Falls back to openai/gpt-oss-120b if this model keeps failing.</span>
           </label>
           <label>
             Transcription model
@@ -233,7 +234,7 @@
     </section>
 
     <footer>
-      The default is Groq's free API using GROQ_API_KEY. Get a key at console.groq.com/keys — no credit card. Nothing is stored after the response is returned.
+      The default is Groq's free API using GROQ_API_KEY from .env. Get a key at console.groq.com/keys — no credit card. Nothing is stored after the response is returned. The public site at https://taha080.github.io/ai-meeting-summarizer/ asks each visitor for a key and keeps it in the browser.
     </footer>
   </main>
   <script>
@@ -243,7 +244,7 @@
     const modelInput = document.getElementById("model");
     const transcriptionInput = document.getElementById("transcription-model");
     const providerDefaults = {
-      groq: { model: "openai/gpt-oss-120b", transcription: "whisper-large-v3-turbo" },
+      groq: { model: "openai/gpt-oss-20b", transcription: "whisper-large-v3-turbo" },
       gemini: { model: "gemini-2.5-flash", transcription: "gemini-2.5-flash" },
       openai: { model: "gpt-4o-mini", transcription: "whisper-1" },
     };

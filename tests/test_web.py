@@ -19,6 +19,7 @@ def test_index_and_health() -> None:
     assert "Meeting Summarizer" in page.text
     assert 'id="file"' in page.text
     assert "whisper-large-v3-turbo" in page.text
+    assert 'value="openai/gpt-oss-20b"' in page.text
     assert "openai/gpt-oss-120b" in page.text
     assert "Groq (free)" in page.text
     assert client.get("/health").json() == {"status": "ok"}
@@ -42,7 +43,7 @@ def test_upload_text_returns_summary(
         "/api/summarize",
         files={"file": ("notes.txt", b"We agreed to ship.", "text/plain")},
         data={
-            "model": "openai/gpt-oss-120b",
+            "model": "openai/gpt-oss-20b",
             "transcription_model": "whisper-large-v3-turbo",
             "provider": "groq",
         },
@@ -57,7 +58,7 @@ def test_upload_text_returns_summary(
     assert seen == {
         "text": "We agreed to ship.",
         "suffix": ".txt",
-        "model": "openai/gpt-oss-120b",
+        "model": "openai/gpt-oss-20b",
         "transcription_model": "whisper-large-v3-turbo",
         "provider": "groq",
     }
